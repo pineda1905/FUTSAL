@@ -23,25 +23,29 @@ public class PartidoTorneoConfiguration : IEntityTypeConfiguration<PartidoTorneo
         builder.Property(p => p.GolesVisita)
             .IsRequired(false);
 
-        // Relaciones con DeleteBehavior.Restrict para evitar ciclos o cascadas múltiples en SQL Server
+        // Relación con Torneo
         builder.HasOne(p => p.Torneo)
-            .WithMany(t => t.Partidos)
+            .WithMany(t => t.PartidosTorneo)
             .HasForeignKey(p => p.TorneoId)
             .OnDelete(DeleteBehavior.Restrict);
 
+        // Relaciones con Equipo (Local, Visita, Ganador) con Restrict para evitar ciclos en SQL Server
         builder.HasOne(p => p.EquipoLocal)
             .WithMany(e => e.PartidosLocal)
             .HasForeignKey(p => p.EquipoLocalId)
-            .OnDelete(DeleteBehavior.Restrict);
+            .OnDelete(DeleteBehavior.Restrict)
+            .IsRequired(false);
 
         builder.HasOne(p => p.EquipoVisita)
             .WithMany(e => e.PartidosVisita)
             .HasForeignKey(p => p.EquipoVisitaId)
-            .OnDelete(DeleteBehavior.Restrict);
+            .OnDelete(DeleteBehavior.Restrict)
+            .IsRequired(false);
 
         builder.HasOne(p => p.Ganador)
             .WithMany(e => e.PartidosGanados)
             .HasForeignKey(p => p.GanadorId)
-            .OnDelete(DeleteBehavior.Restrict);
+            .OnDelete(DeleteBehavior.Restrict)
+            .IsRequired(false);
     }
 }

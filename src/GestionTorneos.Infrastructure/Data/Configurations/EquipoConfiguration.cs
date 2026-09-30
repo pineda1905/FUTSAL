@@ -22,6 +22,7 @@ public class EquipoConfiguration : IEntityTypeConfiguration<Equipo>
             .HasMaxLength(255)
             .IsUnicode(false);
 
+        // Relación con Torneo
         builder.HasOne(e => e.Torneo)
             .WithMany(t => t.Equipos)
             .HasForeignKey(e => e.TorneoId)

@@ -18,8 +18,6 @@ public class ApplicationDbContext : DbContext
     public DbSet<Reserva> Reservas => Set<Reserva>();
 
     // DbSets del Módulo de Torneos
-    public DbSet<EstadoTorneo> EstadosTorneo => Set<EstadoTorneo>();
-    public DbSet<CategoriaGenero> CategoriasGenero => Set<CategoriaGenero>();
     public DbSet<Torneo> Torneos => Set<Torneo>();
     public DbSet<Equipo> Equipos => Set<Equipo>();
     public DbSet<PartidoTorneo> PartidosTorneo => Set<PartidoTorneo>();
