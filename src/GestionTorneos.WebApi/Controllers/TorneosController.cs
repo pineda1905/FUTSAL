@@ -15,7 +15,7 @@ public class TorneosController : ControllerBase
     private readonly ITorneoService _torneoService;
     private readonly ILogger<TorneosController> _logger;
 
-    public TorneosController(ITorneoService torneoService, ILogger<TorneosController> logger)
+    public TorneosController(ITogit config --global user.name "Anderson Pineda"rneoService torneoService, ILogger<TorneosController> logger)
     {
         _torneoService = torneoService;
         _logger = logger;
