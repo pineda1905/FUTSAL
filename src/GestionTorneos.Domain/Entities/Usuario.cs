@@ -11,4 +11,5 @@ public class Usuario
     // Propiedades de navegación
     public virtual Rol Rol { get; set; } = null!;
     public virtual ICollection<Reserva> ReservasCreadas { get; set; } = new HashSet<Reserva>();
+    public virtual ICollection<Torneo> TorneosCreados { get; set; } = new HashSet<Torneo>();
 }
