@@ -25,13 +25,13 @@ public class TorneoService : ITorneoService
             throw new ArgumentException("Los datos para la creación del torneo son requeridos.");
         }
 
-        // a) Valida que FechaInicio esté entre 7 y 20 días a partir de la fecha actual (DateTime.Now). Si no, lanza un ArgumentException.
+        // a) Valida que FechaInicio esté entre 15 y 30 días a partir de la fecha actual (DateTime.Now).
         var ahora = DateTime.Now;
         var diasDiferencia = (dto.FechaInicio.Date - ahora.Date).TotalDays;
 
-        if (diasDiferencia < 7 || diasDiferencia > 20)
+        if (diasDiferencia < 15 || diasDiferencia > 30)
         {
-            throw new ArgumentException($"La fecha de inicio debe estar entre 7 y 20 días a partir de la fecha actual (DateTime.Now). Valor recibido: {dto.FechaInicio:yyyy-MM-dd}.");
+            throw new ArgumentException($"La fecha de inicio debe tener entre 15 y 30 días de anticipación a partir de hoy (DateTime.Now). Valor recibido: {dto.FechaInicio:yyyy-MM-dd}.");
         }
 
         if (dto.Equipos == null || !dto.Equipos.Any(e => !string.IsNullOrWhiteSpace(e)))
@@ -197,5 +197,39 @@ public class TorneoService : ITorneoService
             .Include(p => p.Ganador)
             .Where(p => p.TorneoId == torneoId)
             .ToListAsync(cancellationToken);
+    }
+
+    public async Task<Torneo> ActualizarTorneoAsync(int id, TorneoCreateDTO dto, CancellationToken cancellationToken = default)
+    {
+        if (dto == null)
+        {
+            throw new ArgumentException("Los datos del torneo son obligatorios.");
+        }
+
+        var torneo = await _context.Torneos
+            .Include(t => t.Equipos)
+            .Include(t => t.PartidosTorneo)
+            .FirstOrDefaultAsync(t => t.Id == id, cancellationToken);
+
+        if (torneo == null)
+        {
+            throw new NotFoundException($"No se encontró el torneo con ID {id}.");
+        }
+
+        var ahora = DateTime.Now;
+        var diasDiferencia = (dto.FechaInicio.Date - ahora.Date).TotalDays;
+        if (diasDiferencia < 15 || diasDiferencia > 30)
+        {
+            throw new ArgumentException($"La fecha de inicio debe tener entre 15 y 30 días de anticipación a partir de hoy (DateTime.Now). Valor recibido: {dto.FechaInicio:yyyy-MM-dd}.");
+        }
+
+        torneo.Nombre = dto.Nombre.Trim();
+        torneo.RangoEdad = dto.RangoEdad.Trim();
+        torneo.FechaInicio = dto.FechaInicio.Date;
+        if (dto.GeneroId > 0) torneo.GeneroId = dto.GeneroId;
+        if (dto.EstadoId > 0) torneo.EstadoId = dto.EstadoId;
+
+        await _context.SaveChangesAsync(cancellationToken);
+        return torneo;
     }
 }

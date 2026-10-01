@@ -8,5 +8,6 @@ public interface IReservaService
     Task<IEnumerable<ReservaResponseDTO>> GetActivasAsync(CancellationToken cancellationToken = default);
     Task<ReservaResponseDTO> GetByIdAsync(int id, CancellationToken cancellationToken = default);
     Task<ReservaResponseDTO> CrearReservaAsync(ReservaCreateDTO dto, CancellationToken cancellationToken = default);
+    Task<ReservaResponseDTO> ActualizarReservaAsync(int id, ReservaCreateDTO dto, CancellationToken cancellationToken = default);
     Task<ReservaResponseDTO> CancelarReservaAsync(int id, ReservaCancelDTO dto, CancellationToken cancellationToken = default);
 }
