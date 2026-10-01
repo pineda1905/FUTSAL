@@ -38,6 +38,12 @@ public class Torneo
     [System.Text.Json.Serialization.JsonIgnore]
     public virtual Usuario UsuarioAdmin { get; set; } = null!;
 
+    [ForeignKey(nameof(EstadoId))]
+    public virtual EstadoTorneo? EstadoTorneo { get; set; }
+
+    [ForeignKey(nameof(GeneroId))]
+    public virtual CategoriaGenero? CategoriaGenero { get; set; }
+
     public virtual ICollection<Equipo> Equipos { get; set; } = new HashSet<Equipo>();
     public virtual ICollection<PartidoTorneo> PartidosTorneo { get; set; } = new HashSet<PartidoTorneo>();
 }
