@@ -25,6 +25,7 @@ public class TorneosController : ControllerBase
     /// Lista todos los torneos activos incluyendo sus equipos participantes.
     /// </summary>
     [HttpGet]
+    [AllowAnonymous]
     [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<ActionResult<IEnumerable<Torneo>>> GetTorneosActivos(CancellationToken ct)
     {
@@ -44,6 +45,7 @@ public class TorneosController : ControllerBase
     /// Obtiene el detalle de un torneo por su identificador.
     /// </summary>
     [HttpGet("{id:int}")]
+    [AllowAnonymous]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<Torneo>> GetById(int id, CancellationToken ct)
@@ -137,6 +139,40 @@ public class TorneosController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error inesperado al actualizar resultado del partido {PartidoId}.", partidoId);
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Actualiza los datos de un torneo existente (nombre, rango de edad, fecha de inicio).
+    /// </summary>
+    [HttpPut("{id:int}")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<Torneo>> ActualizarTorneo(int id, [FromBody] TorneoCreateDTO dto, CancellationToken ct)
+    {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
+        try
+        {
+            var torneoActualizado = await _torneoService.ActualizarTorneoAsync(id, dto, ct);
+            return Ok(torneoActualizado);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (NotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error al actualizar torneo {TorneoId}.", id);
             return BadRequest(new { message = ex.Message });
         }
     }

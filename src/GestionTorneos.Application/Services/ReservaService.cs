@@ -148,6 +148,67 @@ public class ReservaService : IReservaService
         return await GetByIdAsync(nuevaReserva.Id, cancellationToken);
     }
 
+    public async Task<ReservaResponseDTO> ActualizarReservaAsync(int id, ReservaCreateDTO dto, CancellationToken cancellationToken = default)
+    {
+        _logger.LogInformation("Iniciando actualización de la reserva #{ReservaId}", id);
+
+        var reserva = await _context.Reservas
+            .Include(r => r.EstadoReserva)
+            .Include(r => r.Cancha)
+            .FirstOrDefaultAsync(r => r.Id == id, cancellationToken);
+
+        if (reserva == null)
+        {
+            throw new NotFoundException($"No se encontró la reserva con ID {id}.");
+        }
+
+        var ahora = DateTime.Now;
+        var limiteMaximo = ahora.AddDays(10);
+        if (dto.FechaHoraInicio > limiteMaximo)
+        {
+            throw new BusinessRuleException(
+                $"No es posible reservar con más de 10 días de anticipación. Límite máximo permitido: {limiteMaximo:dd/MM/yyyy HH:mm}.");
+        }
+
+        if (dto.FechaHoraInicio < ahora)
+        {
+            throw new BusinessRuleException("La fecha y hora de inicio no puede ser anterior al momento actual.");
+        }
+
+        if (dto.FechaHoraFin <= dto.FechaHoraInicio)
+        {
+            throw new BusinessRuleException("La fecha y hora de fin debe ser posterior a la fecha y hora de inicio.");
+        }
+
+        // Validar solapamiento excluyendo la propia reserva que se edita
+        var horarioSolapado = await _context.Reservas
+            .Include(r => r.EstadoReserva)
+            .AnyAsync(r =>
+                r.Id != id &&
+                r.CanchaId == dto.CanchaId &&
+                r.EstadoReserva.NombreEstado != ESTADO_CANCELADA &&
+                dto.FechaHoraInicio < r.FechaHoraFin &&
+                dto.FechaHoraFin > r.FechaHoraInicio,
+                cancellationToken);
+
+        if (horarioSolapado)
+        {
+            throw new BusinessRuleException("La cancha seleccionada ya cuenta con una reserva activa en el rango horario solicitado.");
+        }
+
+        reserva.CanchaId = dto.CanchaId;
+        reserva.NombreCliente = dto.NombreCliente.Trim();
+        reserva.TelefonoWhatsApp = dto.TelefonoWhatsApp.Trim();
+        reserva.FechaHoraInicio = dto.FechaHoraInicio;
+        reserva.FechaHoraFin = dto.FechaHoraFin;
+        reserva.PrecioTotal = dto.PrecioTotal;
+
+        await _context.SaveChangesAsync(cancellationToken);
+        _logger.LogInformation("Reserva #{ReservaId} actualizada exitosamente.", id);
+
+        return await GetByIdAsync(reserva.Id, cancellationToken);
+    }
+
     public async Task<ReservaResponseDTO> CancelarReservaAsync(int id, ReservaCancelDTO dto, CancellationToken cancellationToken = default)
     {
         _logger.LogInformation("Iniciando proceso de cancelación de la reserva #{ReservaId}", id);

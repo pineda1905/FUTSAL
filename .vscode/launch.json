@@ -1,0 +1,26 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": ".NET Core Launch (web)",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build",
+      "program": "${workspaceFolder}/src/GestionTorneos.WebApi/bin/Debug/net8.0/GestionTorneos.WebApi.dll",
+      "args": [],
+      "cwd": "${workspaceFolder}/src/GestionTorneos.WebApi",
+      "stopAtEntry": false,
+      "serverReadyAction": {
+        "action": "openUrl",
+        "actionOpen": "external",
+        "pattern": "\\bNow listening on:\\s+(https?://\\S+)"
+      },
+      "env": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      },
+      "sourceFileMap": {
+        "/Views": "${workspaceFolder}/Views"
+      }
+    }
+  ]
+}

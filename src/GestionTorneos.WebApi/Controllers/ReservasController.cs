@@ -70,6 +70,32 @@ public class ReservasController : ControllerBase
     }
 
     /// <summary>
+    /// Actualiza los datos de una reserva existente (cancha, cliente, teléfono, horario, precio).
+    /// </summary>
+    [HttpPut("{id:int}")]
+    public async Task<ActionResult<ReservaResponseDTO>> ActualizarReserva(int id, [FromBody] ReservaCreateDTO dto, CancellationToken ct)
+    {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
+        try
+        {
+            var reservaActualizada = await _reservaService.ActualizarReservaAsync(id, dto, ct);
+            return Ok(reservaActualizada);
+        }
+        catch (BusinessRuleException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (NotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+    }
+
+    /// <summary>
     /// Cancela una reserva existente actualizando su estado a 'Cancelada' y registrando el motivo.
     /// </summary>
     [HttpPut("{id:int}/cancelar")]
