@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "FutsalPro-AppMovil",
+    "name": "FutsalPro",
     "slug": "FutsalPro-AppMovil",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -15,10 +15,16 @@
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
-      }
+      },
+      "package": "com.pineda.futsalpro"
     },
     "web": {
       "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "8e8d972a-2ed1-4838-97dd-af26ae5d9d63"
+      }
     }
   }
 }
