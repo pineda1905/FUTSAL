@@ -24,7 +24,6 @@ public class TorneoCreateDTO
     [Required(ErrorMessage = "La fecha de inicio es obligatoria.")]
     public DateTime FechaInicio { get; set; }
 
-    [Required(ErrorMessage = "La lista de nombres de equipos es obligatoria.")]
     public List<string> Equipos { get; set; } = new();
 
     // Propiedad alias para mayor compatibilidad

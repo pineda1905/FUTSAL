@@ -1,9 +1,9 @@
 **/.git
-**/.vs
-**/.idea
+**/.git_backup_appmovil
+**/node_modules
+**/.expo
+**/dist
 **/bin
 **/obj
+**/.vs
 **/.vscode
-README.md
-IdeaPrincipal.md
-BDNUEVA.md
