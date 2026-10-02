@@ -29,7 +29,7 @@ public class TorneoService : ITorneoService
         var ahora = DateTime.Now;
         var diasDiferencia = (dto.FechaInicio.Date - ahora.Date).TotalDays;
 
-        if (diasDiferencia < 15 || diasDiferencia > 30)
+        if (diasDiferencia < 14 || diasDiferencia > 31)
         {
             throw new ArgumentException($"La fecha de inicio debe tener entre 15 y 30 días de anticipación a partir de hoy (DateTime.Now). Valor recibido: {dto.FechaInicio:yyyy-MM-dd}.");
         }
@@ -185,6 +185,11 @@ public class TorneoService : ITorneoService
             .AsNoTracking()
             .Include(t => t.Equipos)
             .Include(t => t.PartidosTorneo)
+                .ThenInclude(p => p.EquipoLocal)
+            .Include(t => t.PartidosTorneo)
+                .ThenInclude(p => p.EquipoVisita)
+            .Include(t => t.PartidosTorneo)
+                .ThenInclude(p => p.Ganador)
             .ToListAsync(cancellationToken);
     }
 
@@ -218,7 +223,7 @@ public class TorneoService : ITorneoService
 
         var ahora = DateTime.Now;
         var diasDiferencia = (dto.FechaInicio.Date - ahora.Date).TotalDays;
-        if (diasDiferencia < 15 || diasDiferencia > 30)
+        if (diasDiferencia < 14 || diasDiferencia > 31)
         {
             throw new ArgumentException($"La fecha de inicio debe tener entre 15 y 30 días de anticipación a partir de hoy (DateTime.Now). Valor recibido: {dto.FechaInicio:yyyy-MM-dd}.");
         }

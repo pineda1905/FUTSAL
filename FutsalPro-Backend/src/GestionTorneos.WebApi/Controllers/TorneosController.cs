@@ -9,7 +9,6 @@ namespace GestionTorneos.WebApi.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-[Authorize]
 public class TorneosController : ControllerBase
 {
     private readonly ITorneoService _torneoService;

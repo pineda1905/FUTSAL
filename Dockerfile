@@ -9,17 +9,17 @@ FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
 
-# Copiar archivos .csproj para aprovechar el caché de capas de Docker
-COPY ["src/GestionTorneos.WebApi/GestionTorneos.WebApi.csproj", "src/GestionTorneos.WebApi/"]
-COPY ["src/GestionTorneos.Application/GestionTorneos.Application.csproj", "src/GestionTorneos.Application/"]
-COPY ["src/GestionTorneos.Domain/GestionTorneos.Domain.csproj", "src/GestionTorneos.Domain/"]
-COPY ["src/GestionTorneos.Infrastructure/GestionTorneos.Infrastructure.csproj", "src/GestionTorneos.Infrastructure/"]
+# Copiar archivos .csproj
+COPY ["FutsalPro-Backend/src/GestionTorneos.WebApi/GestionTorneos.WebApi.csproj", "FutsalPro-Backend/src/GestionTorneos.WebApi/"]
+COPY ["FutsalPro-Backend/src/GestionTorneos.Application/GestionTorneos.Application.csproj", "FutsalPro-Backend/src/GestionTorneos.Application/"]
+COPY ["FutsalPro-Backend/src/GestionTorneos.Domain/GestionTorneos.Domain.csproj", "FutsalPro-Backend/src/GestionTorneos.Domain/"]
+COPY ["FutsalPro-Backend/src/GestionTorneos.Infrastructure/GestionTorneos.Infrastructure.csproj", "FutsalPro-Backend/src/GestionTorneos.Infrastructure/"]
 
-RUN dotnet restore "src/GestionTorneos.WebApi/GestionTorneos.WebApi.csproj"
+RUN dotnet restore "FutsalPro-Backend/src/GestionTorneos.WebApi/GestionTorneos.WebApi.csproj"
 
-# Copiar todo el código fuente y compilar
-COPY . .
-WORKDIR "/src/src/GestionTorneos.WebApi"
+# Copiar todo el código fuente del backend y compilar
+COPY FutsalPro-Backend/ FutsalPro-Backend/
+WORKDIR "/src/FutsalPro-Backend/src/GestionTorneos.WebApi"
 RUN dotnet build "GestionTorneos.WebApi.csproj" -c $BUILD_CONFIGURATION -o /app/build
 
 # Etapa de publicación
