@@ -2,6 +2,20 @@ using System.ComponentModel.DataAnnotations;
 
 namespace GestionTorneos.Application.DTOs;
 
+public class EquipoItemDTO
+{
+    public int? Id { get; set; }
+    public string NombreEquipo { get; set; } = string.Empty;
+    public string? NombreRepresentante { get; set; }
+}
+
+public class EquipoUpdateDTO
+{
+    [Required(ErrorMessage = "El nombre del equipo es obligatorio.")]
+    public string NombreEquipo { get; set; } = string.Empty;
+    public string? NombreRepresentante { get; set; }
+}
+
 public class TorneoCreateDTO
 {
     [Required(ErrorMessage = "El ID del administrador es obligatorio.")]
@@ -25,6 +39,10 @@ public class TorneoCreateDTO
     public DateTime FechaInicio { get; set; }
 
     public List<string> Equipos { get; set; } = new();
+
+    public List<EquipoItemDTO>? EquiposDetalle { get; set; }
+
+    public string? MotivoCancelacion { get; set; }
 
     // Propiedad alias para mayor compatibilidad
     public List<string>? NombresEquipos

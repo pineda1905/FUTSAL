@@ -85,6 +85,21 @@ export default function TorneosScreen({ route, navigation }) {
     return currentTorneo?.equipos || [];
   }, [currentTorneo]);
 
+  // Campeón oficial si el torneo está finalizado
+  const campeonTorneo = useMemo(() => {
+    if (!currentTorneo) return null;
+    const isFin = currentTorneo.estadoId === 3 || currentTorneo.estadoTorneo?.nombreEstado?.toLowerCase() === "finalizado";
+    if (!isFin) return null;
+    const pts = currentTorneo.partidosTorneo || [];
+    if (!pts.length) return null;
+    const ultimo = pts[pts.length - 1];
+    if (ultimo?.ganadorId) {
+      const eq = (currentTorneo.equipos || []).find((e) => e.id === ultimo.ganadorId);
+      return eq?.nombreEquipo || `Equipo #${ultimo.ganadorId}`;
+    }
+    return null;
+  }, [currentTorneo]);
+
   // Resuelve el nombre del equipo participante
   const getTeamName = (equipoId, equipoObj, fallback) => {
     if (equipoObj?.nombreEquipo) return equipoObj.nombreEquipo;
@@ -658,6 +673,93 @@ const styles = StyleSheet.create({
     color: '#6EE7B7',
     fontSize: 10,
     fontWeight: '700',
+  },
+  badgeFinalizado: {
+    backgroundColor: '#78350F',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#F59E0B',
+  },
+  badgeFinalizadoText: {
+    color: '#FDE68A',
+    fontSize: 10,
+    fontWeight: '800',
+  },
+  badgeCancelado: {
+    backgroundColor: '#4C0519',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E11D48',
+  },
+  badgeCanceladoText: {
+    color: '#FECDD3',
+    fontSize: 10,
+    fontWeight: '800',
+  },
+  badgeActivo: {
+    backgroundColor: '#1E3A8A',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#3B82F6',
+  },
+  badgeActivoText: {
+    color: '#93C5FD',
+    fontSize: 10,
+    fontWeight: '800',
+  },
+  championBox: {
+    marginVertical: 12,
+    backgroundColor: '#272010',
+    borderRadius: 14,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#D97706',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  championIcon: {
+    fontSize: 28,
+  },
+  championTextBox: {
+    flex: 1,
+  },
+  championTitle: {
+    fontSize: 10,
+    fontWeight: '900',
+    color: '#FCD34D',
+    letterSpacing: 1,
+  },
+  championName: {
+    fontSize: 16,
+    fontWeight: '900',
+    color: '#FFFFFF',
+    marginTop: 2,
+  },
+  cancelledBox: {
+    marginVertical: 12,
+    backgroundColor: '#2D1217',
+    borderRadius: 14,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#BE123C',
+  },
+  cancelledTitle: {
+    fontSize: 11,
+    fontWeight: '900',
+    color: '#FB7185',
+    letterSpacing: 1,
+  },
+  cancelledSub: {
+    fontSize: 12,
+    color: '#F1F5F9',
+    marginTop: 3,
   },
   bannerDetails: {
     flexDirection: 'row',

@@ -10,6 +10,7 @@ public interface ITorneoService
     Task<PartidoTorneo> ActualizarResultadoAsync(PartidoUpdateDTO dto, CancellationToken cancellationToken = default);
     Task<Torneo?> ObtenerPorIdAsync(int id, CancellationToken cancellationToken = default);
     Task<Torneo> ActualizarTorneoAsync(int id, TorneoCreateDTO dto, CancellationToken cancellationToken = default);
+    Task<Equipo> ActualizarEquipoAsync(int equipoId, string nuevoNombre, string? nuevoRepresentante = null, CancellationToken cancellationToken = default);
     Task<IEnumerable<Torneo>> ObtenerTodosAsync(CancellationToken cancellationToken = default);
     Task<IEnumerable<PartidoTorneo>> ObtenerPartidosPorTorneoAsync(int torneoId, CancellationToken cancellationToken = default);
 }
