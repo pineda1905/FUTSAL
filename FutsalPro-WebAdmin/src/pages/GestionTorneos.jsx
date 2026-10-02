@@ -148,6 +148,7 @@ export default function GestionTorneos() {
   const [editFechaInicio, setEditFechaInicio] = useState('');
   const [editFechaError, setEditFechaError] = useState('');
   const [editSubmitError, setEditSubmitError] = useState('');
+  const [motivoCancelacion, setMotivoCancelacion] = useState('');
   const [submittingEditTorneo, setSubmittingEditTorneo] = useState(false);
 
   // --- Estados de Gestión de Equipos y Fotos en Edición ---
@@ -422,28 +423,29 @@ export default function GestionTorneos() {
   // Abrir Modal de Edición de Torneo
   const handleOpenEditTorneo = (torneo) => {
     setEditTorneoId(torneo.id);
-    setEditNombre(torneo.nombre || '');
-    setEditRangoEdad(torneo.rangoEdad || '18 años en adelante');
+    setEditNombre(torneo.nombre || "");
+    setEditRangoEdad(torneo.rangoEdad || "18 años en adelante");
     setEditGeneroId(torneo.generoId || 1);
     setEditEstadoId(torneo.estadoId || 1);
+    setMotivoCancelacion(torneo.motivoCancelacion || "");
 
-    const fStr = torneo.fechaInicio ? torneo.fechaInicio.split('T')[0] : '';
+    const fStr = torneo.fechaInicio ? torneo.fechaInicio.split("T")[0] : "";
     setEditFechaInicio(fStr || dateRange.minStr);
-    setEditFechaError('');
-    setEditSubmitError('');
+    setEditFechaError("");
+    setEditSubmitError("");
 
     // Cargar equipos actuales con sus fotos/escudos
     const equiposCargados = (torneo.equipos || []).map((eq, i) => ({
-      id: eq.id || Date.now() + i + 1,
+      id: eq.id || null,
       nombreEquipo: eq.nombreEquipo || `Equipo #${i + 1}`,
-      nombreRepresentante: eq.nombreRepresentante || 'Por Asignar',
-      fotoUrl: eq.fotoUrl || '⚽',
+      nombreRepresentante: eq.nombreRepresentante || "Por Asignar",
+      fotoUrl: eq.fotoUrl || "⚽",
     }));
 
     setEditEquipos(equiposCargados);
-    setNuevoEquipoNombre('');
-    setNuevoEquipoRep('');
-    setNuevoEquipoFoto('⚽');
+    setNuevoEquipoNombre("");
+    setNuevoEquipoRep("");
+    setNuevoEquipoFoto("⚽");
 
     setIsEditTorneoModalOpen(true);
   };
@@ -451,27 +453,49 @@ export default function GestionTorneos() {
   // Guardar Cambios en Torneo (PUT)
   const handleSaveEditTorneo = async (e) => {
     e.preventDefault();
-    setEditSubmitError('');
+    setEditSubmitError("");
 
-    const errFecha = validateFechaTorneo(editFechaInicio);
-    if (errFecha) {
-      setEditFechaError(errFecha);
+    if (!editFechaInicio) {
+      setEditFechaError("La fecha de inicio es requerida.");
       return;
     }
 
     if (!editNombre.trim()) {
-      setEditSubmitError('El nombre del torneo es obligatorio.');
+      setEditSubmitError("El nombre del torneo es obligatorio.");
       return;
     }
 
     if (editEquipos.length < 2) {
-      setEditSubmitError('El torneo debe tener al menos 2 equipos participantes.');
+      setEditSubmitError("El torneo debe tener al menos 2 equipos participantes.");
+      return;
+    }
+
+    // Regla de Negocio: Validar que todos los partidos estén concluidos para poder marcar como Finalizado
+    const torneoActual = torneos.find((t) => t.id === editTorneoId);
+    const partidosTorneo = torneoActual?.partidosTorneo || [];
+    const partidosIncompletos = partidosTorneo.filter((p) => {
+      if (p.ganadorId) return false;
+      if (!p.equipoVisitaId) return false; // Pase directo
+      return p.golesLocal === null || p.golesVisita === null || p.golesLocal === undefined;
+    });
+
+    if (Number(editEstadoId) === 3 && (partidosIncompletos.length > 0 || partidosTorneo.length === 0)) {
+      setEditSubmitError(
+        `No se puede marcar el torneo como Finalizado. Aún hay ${partidosIncompletos.length} partido(s) pendiente(s) de jugar o sin ganador definido. Todos los partidos deben completarse o cancelarse el torneo con una justa razón.`
+      );
+      return;
+    }
+
+    if (Number(editEstadoId) === 4 && !motivoCancelacion.trim()) {
+      setEditSubmitError(
+        "Para cancelar el torneo es obligatorio ingresar una justa razón (motivo de cancelación)."
+      );
       return;
     }
 
     setSubmittingEditTorneo(true);
 
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem("token");
     const payload = {
       nombre: editNombre.trim(),
       rangoEdad: editRangoEdad.trim(),
@@ -479,48 +503,51 @@ export default function GestionTorneos() {
       estadoId: Number(editEstadoId),
       fechaInicio: `${editFechaInicio}T00:00:00`,
       usuarioAdminId: 1,
-      equipos: editEquipos.map((eq) => eq.nombreEquipo),
+      equipos: editEquipos.map((eq) => eq.nombreEquipo.trim()),
+      equiposDetalle: editEquipos.map((eq) => ({
+        id: eq.id || null,
+        nombreEquipo: eq.nombreEquipo.trim(),
+        nombreRepresentante: eq.nombreRepresentante?.trim() || "Representante",
+      })),
+      motivoCancelacion: motivoCancelacion.trim() || null,
     };
 
     try {
       await futsalApi.put(`/torneos/${editTorneoId}`, payload, {
         headers: { Authorization: `Bearer ${token}` },
       });
+
+      // Actualizar también individualmente cada equipo con ID para persistencia garantizada
+      for (const eq of editEquipos) {
+        if (eq.id && eq.nombreEquipo) {
+          try {
+            await futsalApi.put(`/torneos/equipos/${eq.id}`, {
+              nombreEquipo: eq.nombreEquipo.trim(),
+              nombreRepresentante: eq.nombreRepresentante?.trim() || "Representante",
+            });
+          } catch {}
+        }
+      }
     } catch (apiErr) {
-      console.error('Error al actualizar torneo en API:', apiErr);
-      const errMsg = apiErr.response?.data?.message || apiErr.message || 'Error de conexión con el servidor';
+      console.error("Error al actualizar torneo en API:", apiErr);
+      const errMsg = apiErr.response?.data?.message || apiErr.message || "Error de conexión con el servidor";
       setEditSubmitError(`Error del servidor: ${errMsg}`);
       setSubmittingEditTorneo(false);
       return;
     }
 
-    // Actualizar torneo y regenerar fixture si cambió el número de equipos
+    // Actualizar torneo y propagar nombres actualizados de los equipos a partidosTorneo
     const listaActualizada = torneos.map((t) => {
       if (t.id === editTorneoId) {
-        let partidosActuales = t.partidosTorneo || [];
-        const cambioEquipos = editEquipos.length !== (t.equipos || []).length;
-
-        if (cambioEquipos || partidosActuales.length === 0) {
-          partidosActuales = [];
-          for (let i = 0; i < editEquipos.length; i += 2) {
-            const local = editEquipos[i];
-            const tieneVisita = i + 1 < editEquipos.length;
-            const visita = tieneVisita ? editEquipos[i + 1] : null;
-
-            partidosActuales.push({
-              id: t.id * 100 + i + 1,
-              torneoId: t.id,
-              fase: `Cuartos de Final - Llave ${Math.floor(i / 2) + 1}`,
-              equipoLocalId: local.id,
-              equipoVisitaId: visita ? visita.id : null,
-              equipoLocal: local,
-              equipoVisita: visita,
-              golesLocal: null,
-              golesVisita: null,
-              ganadorId: visita ? null : local.id,
-            });
-          }
-        }
+        const partidosActuales = (t.partidosTorneo || []).map((p) => {
+          const loc = editEquipos.find((e) => e.id === p.equipoLocalId);
+          const vis = editEquipos.find((e) => e.id === p.equipoVisitaId);
+          return {
+            ...p,
+            equipoLocal: loc ? { ...p.equipoLocal, nombreEquipo: loc.nombreEquipo } : p.equipoLocal,
+            equipoVisita: vis ? { ...p.equipoVisita, nombreEquipo: vis.nombreEquipo } : p.equipoVisita,
+          };
+        });
 
         return {
           ...t,
@@ -531,6 +558,7 @@ export default function GestionTorneos() {
           fechaInicio: payload.fechaInicio,
           equipos: editEquipos,
           partidosTorneo: partidosActuales,
+          motivoCancelacion: payload.motivoCancelacion,
         };
       }
       return t;
@@ -904,11 +932,28 @@ export default function GestionTorneos() {
                           onClick={() => setSelectedTorneoId(t.id)}
                           className="space-y-1.5 flex-1 cursor-pointer"
                         >
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
                             <span className="font-bold text-slate-900 text-sm">{t.nombre}</span>
                             <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
                               #{t.id}
                             </span>
+                            {t.estadoId === 3 || t.estadoTorneo?.nombreEstado === "Finalizado" ? (
+                              <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300">
+                                🏆 FINALIZADO
+                              </span>
+                            ) : t.estadoId === 4 || t.estadoTorneo?.nombreEstado === "Cancelado" ? (
+                              <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 border border-rose-300">
+                                🚫 CANCELADO
+                              </span>
+                            ) : t.estadoId === 2 ? (
+                              <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 border border-blue-300">
+                                ⚡ EN JUEGO
+                              </span>
+                            ) : (
+                              <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
+                                📅 PROGRAMADO
+                              </span>
+                            )}
                           </div>
                           <div className="text-xs text-slate-500 flex flex-wrap items-center gap-3">
                             <span>📅 Inicio: <strong className="text-slate-700">{fechaStr}</strong></span>
@@ -972,6 +1017,65 @@ export default function GestionTorneos() {
                   )}
                 </div>
               </div>
+
+              {/* BANNER DE FINALIZACIÓN O CANCELACIÓN EN VISTA DE PARTIDOS */}
+              {selectedTorneo && (() => {
+                const isFin = selectedTorneo.estadoId === 3 || selectedTorneo.estadoTorneo?.nombreEstado === "Finalizado";
+                const isCanc = selectedTorneo.estadoId === 4 || selectedTorneo.estadoTorneo?.nombreEstado === "Cancelado";
+
+                if (isFin) {
+                  const partidos = selectedTorneo.partidosTorneo || [];
+                  let campeonNombre = null;
+                  if (partidos.length > 0) {
+                    const ultimo = partidos[partidos.length - 1];
+                    if (ultimo?.ganadorId) {
+                      const eq = (selectedTorneo.equipos || []).find((e) => e.id === ultimo.ganadorId);
+                      campeonNombre = eq?.nombreEquipo || `Equipo #${ultimo.ganadorId}`;
+                    }
+                  }
+
+                  return (
+                    <div className="mx-5 my-4 p-4 rounded-2xl bg-gradient-to-r from-amber-500/15 via-yellow-500/10 to-amber-500/15 border border-amber-300 flex items-center justify-between flex-wrap gap-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-11 h-11 rounded-xl bg-amber-500 text-white flex items-center justify-center text-2xl shadow-md shadow-amber-500/30">
+                          🏆
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-500 text-white">
+                              Torneo Concluido
+                            </span>
+                            <span className="text-xs text-slate-500 font-medium">Resultados Oficiales Cerrados</span>
+                          </div>
+                          <h4 className="text-base font-black text-slate-900 mt-0.5">
+                            👑 Campeón Oficial: <span className="text-amber-600 underline decoration-amber-400">{campeonNombre || "Ganador Confirmado"}</span>
+                          </h4>
+                        </div>
+                      </div>
+                      <div className="text-xs text-slate-500 text-right">
+                        <span className="font-semibold text-slate-700">Todos los partidos han sido disputados</span>
+                        <p className="text-[11px] text-slate-400">Resultados históricos en modo consulta</p>
+                      </div>
+                    </div>
+                  );
+                }
+
+                if (isCanc) {
+                  return (
+                    <div className="mx-5 my-4 p-3.5 rounded-2xl bg-rose-50 border border-rose-200 flex items-center gap-3 text-xs text-rose-800">
+                      <span className="text-2xl">🚫</span>
+                      <div>
+                        <span className="font-bold uppercase tracking-wider">Torneo Cancelado</span>
+                        <p className="text-rose-700 mt-0.5">
+                          <strong>Justa Razón:</strong> {selectedTorneo.motivoCancelacion || "Cancelado por decisión administrativa / fuerza mayor."}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                }
+
+                return null;
+              })()}
 
               <div className="overflow-x-auto">
                 {!selectedTorneo ? (
@@ -1227,12 +1331,67 @@ export default function GestionTorneos() {
                     onChange={(e) => setEditEstadoId(Number(e.target.value))}
                     className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 bg-slate-50 text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600"
                   >
-                    <option value={1}>Programado</option>
-                    <option value={2}>Activo</option>
-                    <option value={3}>Finalizado</option>
+                    <option value={1}>📅 Programado</option>
+                    <option value={2}>⚡ Activo (En Curso)</option>
+                    <option value={3}>🏆 Finalizado (Concluido)</option>
+                    <option value={4}>🚫 Cancelado (Por Justa Razón)</option>
                   </select>
                 </div>
               </div>
+
+              {/* REGLA DE NEGOCIO: Validaciones visuales al marcar Finalizado o Cancelado */}
+              {(() => {
+                const curTorneo = torneos.find((t) => t.id === editTorneoId);
+                const partidos = curTorneo?.partidosTorneo || [];
+                const incompletos = partidos.filter((p) => {
+                  if (p.ganadorId) return false;
+                  if (!p.equipoVisitaId) return false;
+                  return p.golesLocal === null || p.golesVisita === null || p.golesLocal === undefined;
+                });
+                const hayPendientes = incompletos.length > 0 || partidos.length === 0;
+
+                if (Number(editEstadoId) === 3) {
+                  return hayPendientes ? (
+                    <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-start gap-2.5">
+                      <span className="text-lg leading-none">⚠️</span>
+                      <div>
+                        <span className="font-bold">No se puede finalizar el torneo aún:</span>
+                        <p className="mt-0.5 text-amber-800">
+                          Hay <strong>{incompletos.length}</strong> partido(s) pendiente(s) de jugar o sin marcador/ganador asignado. Todos los partidos deben haberse jugado y tener un ganador definido para poder concluir el torneo, o cancelarlo con una justa razón.
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs flex items-center gap-2.5">
+                      <span className="text-lg leading-none">✅</span>
+                      <div>
+                        <span className="font-bold text-emerald-800">Condición cumplida:</span>
+                        <p className="text-emerald-700">Todos los partidos tienen resultado y ganador definido. El torneo se guardará como Concluido.</p>
+                      </div>
+                    </div>
+                  );
+                }
+
+                if (Number(editEstadoId) === 4) {
+                  return (
+                    <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 space-y-1.5">
+                      <label className="block text-xs font-bold text-rose-800 uppercase tracking-wider">
+                        Justa Razón / Motivo de Cancelación <span className="text-rose-600">*</span>
+                      </label>
+                      <textarea
+                        required
+                        value={motivoCancelacion}
+                        onChange={(e) => setMotivoCancelacion(e.target.value)}
+                        placeholder="Ingresa la razón justificada (ej. suspensión por condiciones climáticas, acuerdo de directiva, fuerza mayor)..."
+                        rows={2}
+                        className="w-full px-3 py-2 rounded-lg border border-rose-300 bg-white text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-rose-500/20"
+                      />
+                    </div>
+                  );
+                }
+
+                return null;
+              })()}
 
               {/* GESTIÓN DE EQUIPOS PARTICIPANTES Y FOTOS */}
               <div className="pt-4 border-t border-slate-200">

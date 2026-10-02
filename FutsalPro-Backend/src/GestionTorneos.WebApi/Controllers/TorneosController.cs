@@ -165,6 +165,11 @@ public class TorneosController : ControllerBase
         {
             return BadRequest(new { message = ex.Message });
         }
+        catch (BusinessRuleException ex)
+        {
+            _logger.LogWarning(ex, "Regla de negocio infringida al actualizar torneo {TorneoId}: {Message}", id, ex.Message);
+            return BadRequest(new { message = ex.Message });
+        }
         catch (NotFoundException ex)
         {
             return NotFound(new { message = ex.Message });
@@ -172,6 +177,36 @@ public class TorneosController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error al actualizar torneo {TorneoId}.", id);
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Actualiza el nombre o datos de un equipo participante en un torneo.
+    /// </summary>
+    [HttpPut("equipos/{equipoId:int}")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<Equipo>> ActualizarEquipo(int equipoId, [FromBody] EquipoUpdateDTO dto, CancellationToken ct)
+    {
+        if (dto == null || string.IsNullOrWhiteSpace(dto.NombreEquipo))
+        {
+            return BadRequest(new { message = "El nombre del equipo es obligatorio." });
+        }
+
+        try
+        {
+            var equipoActualizado = await _torneoService.ActualizarEquipoAsync(equipoId, dto.NombreEquipo, dto.NombreRepresentante, ct);
+            return Ok(equipoActualizado);
+        }
+        catch (NotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error al actualizar el equipo {EquipoId}.", equipoId);
             return BadRequest(new { message = ex.Message });
         }
     }
