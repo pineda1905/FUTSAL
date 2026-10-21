@@ -1,0 +1,39 @@
+### ===================================================================
+### Caso de Aceptación 1019: Desempate por Penales en Partido Igualado
+### ===================================================================
+### Requiere extensión REST Client en VS Code / Antigravity IDE.
+### Configurado exclusivamente para entorno local (localhost).
+### ===================================================================
+
+@baseUrl = http://localhost:5000
+@token = TU_TOKEN_JWT_AQUI
+
+# Ajustar IDs según los registros reales generados en tu base local
+@partidoId = 1
+@equipoLocalId = 1
+@equipoAjenoId = 99999
+
+### 1. Escenario Principal: Empate 2-2 con GanadorId definido por penales
+PUT {{baseUrl}}/api/Torneos/partidos/{{partidoId}}
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "golesLocal": 2,
+  "golesVisita": 2,
+  "ganadorId": {{equipoLocalId}}
+}
+
+###
+
+### 2. Escenario Negativo (Evidencia de Defecto): Empate con GanadorId de equipo ajeno
+# El sistema actualmente acepta el ID sin validar si pertenece al partido (reporte para Azure Boards)
+PUT {{baseUrl}}/api/Torneos/partidos/{{partidoId}}
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "golesLocal": 1,
+  "golesVisita": 1,
+  "ganadorId": {{equipoAjenoId}}
+}
