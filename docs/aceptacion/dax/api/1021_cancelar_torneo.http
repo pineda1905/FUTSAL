@@ -1,0 +1,42 @@
+### ===================================================================
+### Caso de Aceptación 1021: Cancelación Administrativa de Torneo
+### ===================================================================
+### Requiere extensión REST Client en VS Code / Antigravity IDE.
+### Configurado exclusivamente para entorno local (localhost).
+### ===================================================================
+
+@baseUrl = http://localhost:5000
+@token = TU_TOKEN_JWT_AQUI
+
+# Ajustar ID según el torneo existente en tu base de datos local
+@torneoId = 1
+
+### 1. [Escenario Negativo] Intentar cancelar torneo sin ingresar motivo (Rechazo 400)
+PUT {{baseUrl}}/api/Torneos/{{torneoId}}
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "usuarioAdminId": 1,
+  "estadoId": 4,
+  "generoId": 1,
+  "nombre": "Torneo a Cancelar",
+  "rangoEdad": "Libre",
+  "motivoCancelacion": ""
+}
+
+###
+
+### 2. [Escenario Principal] Cancelar torneo exitosamente con motivo obligatorio (200 OK)
+PUT {{baseUrl}}/api/Torneos/{{torneoId}}
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "usuarioAdminId": 1,
+  "estadoId": 4,
+  "generoId": 1,
+  "nombre": "Torneo a Cancelar",
+  "rangoEdad": "Libre",
+  "motivoCancelacion": "Reparación de iluminación de la sucursal"
+}
