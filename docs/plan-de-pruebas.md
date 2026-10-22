@@ -208,3 +208,39 @@ El repositorio incluye `azure-pipelines.yml`, que en cada cambio sobre la rama `
 3. Publica resultados de pruebas y reporte de cobertura en Azure DevOps.
 
 Las pruebas **no dependen de internet ni de un SQL Server real**: las de integración usan `WebApplicationFactory` (`CustomWebApplicationFactory`) con proveedor InMemory, y las unitarias usan mocks. El archivo `azure-pipelines.yml` no contiene secretos: las cadenas de conexión y tokens deben inyectarse como variables de pipeline o secretos de la biblioteca.
+
+---
+
+## 11. Evidencias en Azure DevOps
+
+Capturas obtenidas de la organización `daxascencio1`, proyecto `Testeo`, equipo `Testeo Team` (22/10/2026).
+
+### 11.1 Product Backlog Items del Sprint 1
+
+![Backlog de PBIs](assets/evidencias/01_backlog_pbis.png)
+
+### 11.2 PBI #101 — Reservas
+
+![PBI 101](assets/evidencias/02_pbi101_reservas.png)
+
+### 11.3 PBI #102 — Cancelación de reservas
+
+![PBI 102](assets/evidencias/03_pbi102_cancelacion.png)
+
+### 11.4 PBI #103 — Torneos y fixture
+
+![PBI 103](assets/evidencias/04_pbi103_torneos.png)
+
+### 11.5 PBI #104 — Marcadores y resultados
+
+![PBI 104](assets/evidencias/05_pbi104_marcadores.png)
+
+### 11.6 Plan de pruebas y suites
+
+![Test Plans All](assets/evidencias/06_testplans_all.png)
+
+![Suites del plan](assets/evidencias/08_testplan_item90_suites.png)
+
+### 11.7 Taskboard del Sprint 1
+
+![Taskboard Sprint 1](assets/evidencias/07_taskboard_sprint1.png)
