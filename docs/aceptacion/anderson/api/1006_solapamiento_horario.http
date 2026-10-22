@@ -1,0 +1,42 @@
+### ===================================================================
+### Caso de Aceptación 1006: Prevención de solapamiento de horarios en cancha
+### ===================================================================
+
+@baseUrl = http://localhost:5000
+@token = TU_TOKEN_JWT_AQUI
+
+@canchaId = 1
+@usuarioAdminId = 1
+
+### 1. Registrar primera reserva activa (201 Created)
+# Cancha 1 de 18:00 a 19:00
+POST {{baseUrl}}/api/Reservas
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "canchaId": {{canchaId}},
+  "usuarioAdminId": {{usuarioAdminId}},
+  "nombreCliente": "Cliente Reserva Base",
+  "telefonoWhatsApp": "+503 7111-2222",
+  "fechaHoraInicio": "2026-10-26T18:00:00",
+  "fechaHoraFin": "2026-10-26T19:00:00",
+  "precioTotal": 10.00
+}
+
+###
+### 2. Intentar registrar segunda reserva solapada en la misma Cancha 1 de 18:30 a 19:30 (400 Bad Request)
+# Debe ser rechazada indicando conflicto de horario
+POST {{baseUrl}}/api/Reservas
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "canchaId": {{canchaId}},
+  "usuarioAdminId": {{usuarioAdminId}},
+  "nombreCliente": "Cliente Intento Solapado",
+  "telefonoWhatsApp": "+503 7333-4444",
+  "fechaHoraInicio": "2026-10-26T18:30:00",
+  "fechaHoraFin": "2026-10-26T19:30:00",
+  "precioTotal": 10.00
+}

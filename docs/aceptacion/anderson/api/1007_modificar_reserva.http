@@ -1,0 +1,31 @@
+### ===================================================================
+### Caso de Aceptación 1007: Modificación de reserva activa existente
+### ===================================================================
+
+@baseUrl = http://localhost:5000
+@token = TU_TOKEN_JWT_AQUI
+
+# Ajustar 'reservaId' con el identificador real obtenido de una reserva previa
+@reservaId = 1
+@canchaId = 1
+@usuarioAdminId = 1
+
+### 1. Actualizar datos de cliente, teléfono y reprogramar horario (200 OK)
+PUT {{baseUrl}}/api/Reservas/{{reservaId}}
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "canchaId": {{canchaId}},
+  "usuarioAdminId": {{usuarioAdminId}},
+  "nombreCliente": "Carlos Alvarenga Modificado",
+  "telefonoWhatsApp": "+503 7888-9999",
+  "fechaHoraInicio": "2026-10-27T19:00:00",
+  "fechaHoraFin": "2026-10-27T20:30:00",
+  "precioTotal": 15.00
+}
+
+###
+### 2. Comprobar que la reserva refleja los datos actualizados
+GET {{baseUrl}}/api/Reservas/{{reservaId}}
+Authorization: Bearer {{token}}

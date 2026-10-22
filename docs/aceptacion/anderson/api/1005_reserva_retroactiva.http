@@ -1,0 +1,25 @@
+### ===================================================================
+### Caso de Aceptación 1005: Rechazo de reserva en horario retroactivo
+### ===================================================================
+
+@baseUrl = http://localhost:5000
+@token = TU_TOKEN_JWT_AQUI
+
+@canchaId = 1
+@usuarioAdminId = 1
+
+### 1. Intentar registrar reserva con fecha u hora anterior al momento actual (400 Bad Request)
+# Ejemplo con fecha en el pasado
+POST {{baseUrl}}/api/Reservas
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "canchaId": {{canchaId}},
+  "usuarioAdminId": {{usuarioAdminId}},
+  "nombreCliente": "David Castillo",
+  "telefonoWhatsApp": "+503 7000-1122",
+  "fechaHoraInicio": "2026-10-15T10:00:00",
+  "fechaHoraFin": "2026-10-15T11:00:00",
+  "precioTotal": 10.00
+}

@@ -1,0 +1,25 @@
+### ===================================================================
+### Caso de Aceptación 1004: Rechazo de reserva con más de 10 días de anticipación
+### ===================================================================
+
+@baseUrl = http://localhost:5000
+@token = TU_TOKEN_JWT_AQUI
+
+@canchaId = 1
+@usuarioAdminId = 1
+
+### 1. Intentar registrar reserva con anticipación superior a 10 días (400 Bad Request)
+# Fecha de inicio programada 15 días adelante desde la fecha actual
+POST {{baseUrl}}/api/Reservas
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "canchaId": {{canchaId}},
+  "usuarioAdminId": {{usuarioAdminId}},
+  "nombreCliente": "Mario Mendoza",
+  "telefonoWhatsApp": "+503 7987-6543",
+  "fechaHoraInicio": "2026-11-10T18:00:00",
+  "fechaHoraFin": "2026-11-10T19:00:00",
+  "precioTotal": 10.00
+}

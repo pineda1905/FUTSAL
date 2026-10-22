@@ -1,0 +1,26 @@
+### ===================================================================
+### Caso de Aceptación 1020: Validación para marcar torneo como Finalizado
+### ===================================================================
+
+@baseUrl = http://localhost:5000
+@token = TU_TOKEN_JWT_AQUI
+
+# Ajustar 'torneoId' con el ID real de un torneo que tenga partidos pendientes
+@torneoId = 1
+@usuarioAdminId = 1
+@generoId = 1
+
+### 1. Intentar cambiar estado del torneo a Finalizado (estadoId = 3) teniendo partidos sin resolver
+# El sistema debe rechazar la solicitud con 400 Bad Request
+PUT {{baseUrl}}/api/Torneos/{{torneoId}}
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "nombre": "Torneo Apertura Futsal",
+  "rangoEdad": "Libre",
+  "fechaInicio": "2026-11-15T08:00:00",
+  "generoId": {{generoId}},
+  "usuarioAdminId": {{usuarioAdminId}},
+  "estadoId": 3
+}
