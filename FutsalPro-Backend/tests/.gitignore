@@ -1,0 +1,20 @@
+# Binarios de compilación
+bin/
+obj/
+
+# Resultados de pruebas
+TestResults/
+*.trx
+*.coverage
+*.coveragexml
+
+# Visual Studio
+.vs/
+
+# Agentes
+.agents/
+
+# Archivos de usuario de IDE
+*.user
+*.suo
+*.userprefs

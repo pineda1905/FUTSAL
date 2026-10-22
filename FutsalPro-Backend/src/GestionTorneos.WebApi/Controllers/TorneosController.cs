@@ -1,0 +1,213 @@
+using GestionTorneos.Application.DTOs;
+using GestionTorneos.Application.Services;
+using GestionTorneos.Domain.Entities;
+using GestionTorneos.Domain.Exceptions;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+
+namespace GestionTorneos.WebApi.Controllers;
+
+[ApiController]
+[Route("api/[controller]")]
+public class TorneosController : ControllerBase
+{
+    private readonly ITorneoService _torneoService;
+    private readonly ILogger<TorneosController> _logger;
+
+    public TorneosController(ITorneoService torneoService, ILogger<TorneosController> logger)
+    {
+        _torneoService = torneoService;
+        _logger = logger;
+    }
+
+    /// <summary>
+    /// Lista todos los torneos activos incluyendo sus equipos participantes.
+    /// </summary>
+    [HttpGet]
+    [AllowAnonymous]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<ActionResult<IEnumerable<Torneo>>> GetTorneosActivos(CancellationToken ct)
+    {
+        try
+        {
+            var torneos = await _torneoService.ObtenerTodosAsync(ct);
+            return Ok(torneos);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error al obtener el listado de torneos activos.");
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Obtiene el detalle de un torneo por su identificador.
+    /// </summary>
+    [HttpGet("{id:int}")]
+    [AllowAnonymous]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<Torneo>> GetById(int id, CancellationToken ct)
+    {
+        try
+        {
+            var torneo = await _torneoService.ObtenerPorIdAsync(id, ct);
+            if (torneo == null)
+            {
+                return NotFound(new { message = $"No se encontró el torneo con ID {id}." });
+            }
+
+            return Ok(torneo);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error al obtener el torneo con ID {TorneoId}.", id);
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Crea un nuevo torneo y genera automáticamente el fixture de Cuartos de Final.
+    /// </summary>
+    [HttpPost]
+    [ProducesResponseType(StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<Torneo>> CrearTorneo([FromBody] TorneoCreateDTO dto, CancellationToken ct)
+    {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
+        try
+        {
+            var nuevoTorneo = await _torneoService.CrearTorneoAsync(dto, ct);
+            return CreatedAtAction(nameof(GetById), new { id = nuevoTorneo.Id }, nuevoTorneo);
+        }
+        catch (ArgumentException ex)
+        {
+            _logger.LogWarning(ex, "Regla de validación infringida al crear torneo: {Message}", ex.Message);
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (BusinessRuleException ex)
+        {
+            _logger.LogWarning(ex, "Regla de negocio infringida al crear torneo: {Message}", ex.Message);
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error inesperado al crear torneo.");
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Actualiza el resultado (goles) de un partido de torneo y determina automáticamente al ganador.
+    /// </summary>
+    [HttpPut("partidos/{partidoId:int}")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<PartidoTorneo>> ActualizarResultado(int partidoId, [FromBody] PartidoUpdateDTO dto, CancellationToken ct)
+    {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
+        try
+        {
+            var partidoActualizado = await _torneoService.ActualizarResultadoAsync(partidoId, dto, ct);
+            return Ok(partidoActualizado);
+        }
+        catch (ArgumentException ex)
+        {
+            _logger.LogWarning(ex, "Parámetros inválidos al actualizar resultado del partido {PartidoId}: {Message}", partidoId, ex.Message);
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (NotFoundException ex)
+        {
+            _logger.LogWarning(ex, "Partido no encontrado {PartidoId}: {Message}", partidoId, ex.Message);
+            return NotFound(new { message = ex.Message });
+        }
+        catch (BusinessRuleException ex)
+        {
+            _logger.LogWarning(ex, "Regla de negocio infringida al actualizar partido {PartidoId}: {Message}", partidoId, ex.Message);
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error inesperado al actualizar resultado del partido {PartidoId}.", partidoId);
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Actualiza los datos de un torneo existente (nombre, rango de edad, fecha de inicio).
+    /// </summary>
+    [HttpPut("{id:int}")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<Torneo>> ActualizarTorneo(int id, [FromBody] TorneoCreateDTO dto, CancellationToken ct)
+    {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
+        try
+        {
+            var torneoActualizado = await _torneoService.ActualizarTorneoAsync(id, dto, ct);
+            return Ok(torneoActualizado);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (BusinessRuleException ex)
+        {
+            _logger.LogWarning(ex, "Regla de negocio infringida al actualizar torneo {TorneoId}: {Message}", id, ex.Message);
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (NotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error al actualizar torneo {TorneoId}.", id);
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Actualiza el nombre o datos de un equipo participante en un torneo.
+    /// </summary>
+    [HttpPut("equipos/{equipoId:int}")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<Equipo>> ActualizarEquipo(int equipoId, [FromBody] EquipoUpdateDTO dto, CancellationToken ct)
+    {
+        if (dto == null || string.IsNullOrWhiteSpace(dto.NombreEquipo))
+        {
+            return BadRequest(new { message = "El nombre del equipo es obligatorio." });
+        }
+
+        try
+        {
+            var equipoActualizado = await _torneoService.ActualizarEquipoAsync(equipoId, dto.NombreEquipo, dto.NombreRepresentante, ct);
+            return Ok(equipoActualizado);
+        }
+        catch (NotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error al actualizar el equipo {EquipoId}.", equipoId);
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+}

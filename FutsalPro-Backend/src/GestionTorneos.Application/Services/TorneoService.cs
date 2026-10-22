@@ -1,0 +1,346 @@
+using GestionTorneos.Application.DTOs;
+using GestionTorneos.Domain.Entities;
+using GestionTorneos.Domain.Exceptions;
+using GestionTorneos.Infrastructure.Data;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
+
+namespace GestionTorneos.Application.Services;
+
+public class TorneoService : ITorneoService
+{
+    private readonly ApplicationDbContext _context;
+    private readonly ILogger<TorneoService> _logger;
+
+    public TorneoService(ApplicationDbContext context, ILogger<TorneoService> logger)
+    {
+        _context = context;
+        _logger = logger;
+    }
+
+    public async Task<Torneo> CrearTorneoAsync(TorneoCreateDTO dto, CancellationToken cancellationToken = default)
+    {
+        if (dto == null)
+        {
+            throw new ArgumentException("Los datos para la creación del torneo son requeridos.");
+        }
+
+        // a) Valida que FechaInicio esté entre 15 y 30 días a partir de la fecha actual (DateTime.Now).
+        var ahora = DateTime.Now;
+        var diasDiferencia = (dto.FechaInicio.Date - ahora.Date).TotalDays;
+
+        if (diasDiferencia < 14 || diasDiferencia > 31)
+        {
+            throw new ArgumentException($"La fecha de inicio debe tener entre 15 y 30 días de anticipación a partir de hoy (DateTime.Now). Valor recibido: {dto.FechaInicio:yyyy-MM-dd}.");
+        }
+
+        if (dto.Equipos == null || !dto.Equipos.Any(e => !string.IsNullOrWhiteSpace(e)))
+        {
+            throw new ArgumentException("El torneo debe incluir al menos un equipo participante.");
+        }
+
+        // b) Guarda el torneo y sus equipos asociados en la BD.
+        var torneo = new Torneo
+        {
+            UsuarioAdminId = dto.UsuarioAdminId,
+            EstadoId = dto.EstadoId,
+            GeneroId = dto.GeneroId,
+            Nombre = dto.Nombre.Trim(),
+            RangoEdad = dto.RangoEdad.Trim(),
+            FechaInicio = dto.FechaInicio.Date
+        };
+
+        foreach (var nombreEquipo in dto.Equipos)
+        {
+            if (!string.IsNullOrWhiteSpace(nombreEquipo))
+            {
+                torneo.Equipos.Add(new Equipo
+                {
+                    NombreEquipo = nombreEquipo.Trim(),
+                    NombreRepresentante = "Por Asignar"
+                });
+            }
+        }
+
+        await _context.Torneos.AddAsync(torneo, cancellationToken);
+        await _context.SaveChangesAsync(cancellationToken);
+
+        // c) Simulación de Fixture: Genera automáticamente los registros vacíos en la tabla PartidosTorneo
+        // para la fase de 'Cuartos de Final' emparejando a los equipos creados (si son impares, deja EquipoVisitaId como NULL para simular el Pase Directo).
+        var equiposCreados = torneo.Equipos.ToList();
+
+        for (int i = 0; i < equiposCreados.Count; i += 2)
+        {
+            var equipoLocal = equiposCreados[i];
+            var tieneVisita = (i + 1) < equiposCreados.Count;
+            var equipoVisita = tieneVisita ? equiposCreados[i + 1] : null;
+
+            var partido = new PartidoTorneo
+            {
+                TorneoId = torneo.Id,
+                Fase = "Cuartos de Final",
+                EquipoLocalId = equipoLocal.Id,
+                EquipoVisitaId = equipoVisita?.Id,
+                GolesLocal = null,
+                GolesVisita = null,
+                GanadorId = null
+            };
+
+            _context.PartidosTorneo.Add(partido);
+        }
+
+        await _context.SaveChangesAsync(cancellationToken);
+
+        _logger.LogInformation("Torneo {TorneoId} '{Nombre}' creado exitosamente con {EquiposCount} equipos y fixture de Cuartos de Final generado.",
+            torneo.Id, torneo.Nombre, equiposCreados.Count);
+
+        // Retornar entidad con sus relaciones cargadas
+        return await _context.Torneos
+            .Include(t => t.Equipos)
+            .Include(t => t.PartidosTorneo)
+            .FirstAsync(t => t.Id == torneo.Id, cancellationToken);
+    }
+
+    public async Task<PartidoTorneo> ActualizarResultadoAsync(int partidoId, PartidoUpdateDTO dto, CancellationToken cancellationToken = default)
+    {
+        if (dto == null)
+        {
+            throw new ArgumentException("Los datos del resultado del partido son requeridos.");
+        }
+
+        // Valida que los goles se hayan proporcionado
+        if (!dto.GolesLocal.HasValue || !dto.GolesVisita.HasValue)
+        {
+            throw new ArgumentException("Los goles del equipo local y visitante deben ser proporcionados.");
+        }
+
+        if (dto.GolesLocal.Value < 0 || dto.GolesVisita.Value < 0)
+        {
+            throw new ArgumentException("Los goles no pueden ser valores negativos.");
+        }
+
+        var partido = await _context.PartidosTorneo
+            .Include(p => p.EquipoLocal)
+            .Include(p => p.EquipoVisita)
+            .FirstOrDefaultAsync(p => p.Id == partidoId, cancellationToken);
+
+        if (partido == null)
+        {
+            throw new NotFoundException($"No se encontró el partido con ID {partidoId}.");
+        }
+
+        partido.GolesLocal = dto.GolesLocal.Value;
+        partido.GolesVisita = dto.GolesVisita.Value;
+
+        // Determina el GanadorId comparando los goles
+        if (dto.GolesLocal.Value > dto.GolesVisita.Value)
+        {
+            partido.GanadorId = partido.EquipoLocalId;
+        }
+        else if (dto.GolesVisita.Value > dto.GolesLocal.Value)
+        {
+            partido.GanadorId = partido.EquipoVisitaId;
+        }
+        else
+        {
+            // En caso de empate en el marcador regular, se utiliza el GanadorId provisto (por ejemplo, desempate/penales)
+            partido.GanadorId = dto.GanadorId;
+        }
+
+        await _context.SaveChangesAsync(cancellationToken);
+
+        _logger.LogInformation("Resultado actualizado para el partido {PartidoId}: Local {GolesLocal} - Visita {GolesVisita}. GanadorId: {GanadorId}",
+            partido.Id, partido.GolesLocal, partido.GolesVisita, partido.GanadorId);
+
+        return partido;
+    }
+
+    public async Task<PartidoTorneo> ActualizarResultadoAsync(PartidoUpdateDTO dto, CancellationToken cancellationToken = default)
+    {
+        if (dto == null || !dto.PartidoId.HasValue)
+        {
+            throw new ArgumentException("El identificador del partido (PartidoId) es requerido.");
+        }
+
+        return await ActualizarResultadoAsync(dto.PartidoId.Value, dto, cancellationToken);
+    }
+
+    public async Task<Torneo?> ObtenerPorIdAsync(int id, CancellationToken cancellationToken = default)
+    {
+        return await _context.Torneos
+            .AsNoTracking()
+            .Include(t => t.EstadoTorneo)
+            .Include(t => t.CategoriaGenero)
+            .Include(t => t.Equipos)
+            .Include(t => t.PartidosTorneo)
+                .ThenInclude(p => p.EquipoLocal)
+            .Include(t => t.PartidosTorneo)
+                .ThenInclude(p => p.EquipoVisita)
+            .Include(t => t.PartidosTorneo)
+                .ThenInclude(p => p.Ganador)
+            .FirstOrDefaultAsync(t => t.Id == id, cancellationToken);
+    }
+
+    public async Task<IEnumerable<Torneo>> ObtenerTodosAsync(CancellationToken cancellationToken = default)
+    {
+        return await _context.Torneos
+            .AsNoTracking()
+            .Include(t => t.EstadoTorneo)
+            .Include(t => t.CategoriaGenero)
+            .Include(t => t.Equipos)
+            .Include(t => t.PartidosTorneo)
+                .ThenInclude(p => p.EquipoLocal)
+            .Include(t => t.PartidosTorneo)
+                .ThenInclude(p => p.EquipoVisita)
+            .Include(t => t.PartidosTorneo)
+                .ThenInclude(p => p.Ganador)
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<IEnumerable<PartidoTorneo>> ObtenerPartidosPorTorneoAsync(int torneoId, CancellationToken cancellationToken = default)
+    {
+        return await _context.PartidosTorneo
+            .AsNoTracking()
+            .Include(p => p.EquipoLocal)
+            .Include(p => p.EquipoVisita)
+            .Include(p => p.Ganador)
+            .Where(p => p.TorneoId == torneoId)
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<Torneo> ActualizarTorneoAsync(int id, TorneoCreateDTO dto, CancellationToken cancellationToken = default)
+    {
+        if (dto == null)
+        {
+            throw new ArgumentException("Los datos del torneo son obligatorios.");
+        }
+
+        var torneo = await _context.Torneos
+            .Include(t => t.Equipos)
+            .Include(t => t.PartidosTorneo)
+            .FirstOrDefaultAsync(t => t.Id == id, cancellationToken);
+
+        if (torneo == null)
+        {
+            throw new NotFoundException($"No se encontró el torneo con ID {id}.");
+        }
+
+        // Actualización de campos generales del torneo
+        if (!string.IsNullOrWhiteSpace(dto.Nombre))
+            torneo.Nombre = dto.Nombre.Trim();
+
+        if (!string.IsNullOrWhiteSpace(dto.RangoEdad))
+            torneo.RangoEdad = dto.RangoEdad.Trim();
+
+        if (dto.FechaInicio != default)
+            torneo.FechaInicio = dto.FechaInicio.Date;
+
+        if (dto.GeneroId > 0)
+            torneo.GeneroId = dto.GeneroId;
+
+        // Actualización de nombres de equipos asociados
+        if (dto.EquiposDetalle != null && dto.EquiposDetalle.Any())
+        {
+            foreach (var item in dto.EquiposDetalle)
+            {
+                if (item.Id.HasValue)
+                {
+                    var eq = torneo.Equipos.FirstOrDefault(e => e.Id == item.Id.Value);
+                    if (eq != null)
+                    {
+                        if (!string.IsNullOrWhiteSpace(item.NombreEquipo))
+                            eq.NombreEquipo = item.NombreEquipo.Trim();
+                        if (!string.IsNullOrWhiteSpace(item.NombreRepresentante))
+                            eq.NombreRepresentante = item.NombreRepresentante.Trim();
+                    }
+                }
+            }
+        }
+        else if (dto.Equipos != null && dto.Equipos.Any())
+        {
+            var equiposExistentes = torneo.Equipos.OrderBy(e => e.Id).ToList();
+            for (int i = 0; i < equiposExistentes.Count && i < dto.Equipos.Count; i++)
+            {
+                if (!string.IsNullOrWhiteSpace(dto.Equipos[i]))
+                {
+                    equiposExistentes[i].NombreEquipo = dto.Equipos[i].Trim();
+                }
+            }
+        }
+
+        // REGLA DE NEGOCIO: Validaciones de Estado Finalizado / Cancelado
+        if (dto.EstadoId == 3) // Finalizado
+        {
+            if (!torneo.PartidosTorneo.Any())
+            {
+                throw new BusinessRuleException("No se puede marcar el torneo como Finalizado porque no tiene partidos registrados.");
+            }
+
+            var partidosIncompletos = torneo.PartidosTorneo
+                .Where(p => !p.GanadorId.HasValue || (p.EquipoVisitaId.HasValue && (!p.GolesLocal.HasValue || !p.GolesVisita.HasValue)))
+                .ToList();
+
+            if (partidosIncompletos.Any())
+            {
+                throw new BusinessRuleException($"No se puede marcar el torneo como Finalizado. Aún hay {partidosIncompletos.Count} partido(s) pendiente(s) de jugar o sin ganador definido. Todos los partidos deben completarse o cancelarse el torneo con una justa razón.");
+            }
+
+            torneo.EstadoId = 3;
+        }
+        else if (dto.EstadoId == 4) // Cancelado
+        {
+            if (string.IsNullOrWhiteSpace(dto.MotivoCancelacion))
+            {
+                throw new BusinessRuleException("Para cancelar el torneo es obligatorio ingresar una justa razón (motivo de cancelación).");
+            }
+
+            var estadoCancelado = await _context.Set<EstadoTorneo>().FirstOrDefaultAsync(e => e.NombreEstado == "Cancelado", cancellationToken);
+            if (estadoCancelado != null)
+            {
+                torneo.EstadoId = estadoCancelado.Id;
+            }
+            else
+            {
+                try
+                {
+                    var nuevoEstado = new EstadoTorneo { NombreEstado = "Cancelado" };
+                    _context.Set<EstadoTorneo>().Add(nuevoEstado);
+                    await _context.SaveChangesAsync(cancellationToken);
+                    torneo.EstadoId = nuevoEstado.Id;
+                }
+                catch
+                {
+                    torneo.EstadoId = 3; // Fallback seguro
+                }
+            }
+        }
+        else if (dto.EstadoId > 0)
+        {
+            torneo.EstadoId = dto.EstadoId;
+        }
+
+        await _context.SaveChangesAsync(cancellationToken);
+        _logger.LogInformation("Torneo #{TorneoId} {Nombre} actualizado exitosamente con estado {EstadoId}.", torneo.Id, torneo.Nombre, torneo.EstadoId);
+
+        return await ObtenerPorIdAsync(torneo.Id, cancellationToken) ?? torneo;
+    }
+
+    public async Task<Equipo> ActualizarEquipoAsync(int equipoId, string nuevoNombre, string? nuevoRepresentante = null, CancellationToken cancellationToken = default)
+    {
+        var equipo = await _context.Equipos.FirstOrDefaultAsync(e => e.Id == equipoId, cancellationToken);
+        if (equipo == null)
+        {
+            throw new NotFoundException($"No se encontró el equipo con ID {equipoId}.");
+        }
+
+        equipo.NombreEquipo = nuevoNombre.Trim();
+        if (!string.IsNullOrWhiteSpace(nuevoRepresentante))
+        {
+            equipo.NombreRepresentante = nuevoRepresentante.Trim();
+        }
+
+        await _context.SaveChangesAsync(cancellationToken);
+        _logger.LogInformation("Equipo #{EquipoId} actualizado exitosamente: {NombreEquipo}", equipo.Id, equipo.NombreEquipo);
+        return equipo;
+    }
+}

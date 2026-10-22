@@ -1,0 +1,84 @@
+trigger:
+  branches:
+    include:
+      - develop
+
+pr:
+  branches:
+    include:
+      - develop
+
+pool:
+  vmImage: ubuntu-latest
+
+variables:
+  buildConfiguration: Release
+  solution: FutsalPro-Backend/GestionTorneos.sln
+  unitTestsProject: FutsalPro-Backend/tests/FutsalPro.UnitTests/FutsalPro.UnitTests.csproj
+  integrationTestsProject: FutsalPro-Backend/tests/FutsalPro.IntegrationTests/FutsalPro.IntegrationTests.csproj
+
+stages:
+  - stage: Build_Test
+    displayName: Compilacion y pruebas
+    jobs:
+      - job: BuildAndTest
+        displayName: Restore, Build y Test
+        timeoutInMinutes: 30
+        steps:
+          - checkout: self
+
+          - task: UseDotNet@2
+            displayName: Instalar .NET 8 SDK
+            inputs:
+              packageType: sdk
+              version: 8.0.x
+              includePreviewVersions: false
+
+          - script: dotnet restore $(solution)
+            displayName: Restaurar dependencias
+
+          - script: dotnet build $(solution) --configuration $(buildConfiguration) --no-restore
+            displayName: Compilar solucion
+
+          - script: |
+              dotnet test $(unitTestsProject) \
+                --configuration $(buildConfiguration) \
+                --no-build \
+                --logger "trx;LogFileName=unit-tests.trx" \
+                --results-directory $(Agent.TempDirectory)/TestResults/Unit \
+                --collect:"XPlat Code Coverage" \
+                -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura
+            displayName: Ejecutar pruebas unitarias con cobertura
+            env:
+              DOTNET_CLI_TELEMETRY_OPTOUT: 1
+
+          - script: |
+              dotnet test $(integrationTestsProject) \
+                --configuration $(buildConfiguration) \
+                --no-build \
+                --logger "trx;LogFileName=integration-tests.trx" \
+                --results-directory $(Agent.TempDirectory)/TestResults/Integration \
+                --collect:"XPlat Code Coverage" \
+                -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura
+            displayName: Ejecutar pruebas de integracion con cobertura
+            env:
+              DOTNET_CLI_TELEMETRY_OPTOUT: 1
+              ASPNETCORE_ENVIRONMENT: Testing
+
+          - task: PublishTestResults@2
+            displayName: Publicar resultados de pruebas
+            condition: succeededOrFailed()
+            inputs:
+              testResultsFormat: VSTest
+              testResultsFiles: "**/*.trx"
+              searchFolder: $(Agent.TempDirectory)/TestResults
+              mergeTestResults: true
+              failTaskOnFailedTests: true
+              testRunTitle: FutsalPro - Unit e Integration Tests
+
+          - task: PublishCodeCoverageResults@2
+            displayName: Publicar cobertura de codigo
+            condition: succeededOrFailed()
+            inputs:
+              summaryFileLocation: "$(Agent.TempDirectory)/TestResults/**/coverage.cobertura.xml"
+              failIfCoverageEmpty: false
